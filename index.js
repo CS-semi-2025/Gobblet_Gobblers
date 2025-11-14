@@ -24,6 +24,7 @@ function makeEmptyBoard() {
 
 let gameState = {
   board: makeEmptyBoard(),
+  prevBoard: null,
   players: {
     // slot keys 'A' and 'B' reserved; each slot may be null (no player)
     A: null,
@@ -84,6 +85,99 @@ function checkWinner() {
     }
   }
   return null;
+}
+
+// ----------------- tsum state check -----------------
+
+function cloneState(state) {
+  return JSON.parse(JSON.stringify(state));
+}
+
+function getAllLegalMoves(state, playerKey) {
+  const moves = [];
+  const player = state.players[playerKey];
+  if (!player) return moves;
+
+  // from-hand moves
+  for (const size of ["small", "medium", "large"]) {
+    if (player.pieces[size] > 0) {
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          if (canPlaceAt(r, c, size, playerKey)) {
+            moves.push({ action: "place_from_hand", size, to: { r, c } });
+          }
+        }
+      }
+    }
+  }
+
+  // move-on-board moves
+  for (let fr = 0; fr < 3; fr++) {
+    for (let fc = 0; fc < 3; fc++) {
+      const stack = state.board[fr][fc];
+      if (!stack.length) continue;
+      const top = stack.at(-1);
+      if (top.owner !== playerKey) continue;
+      for (let tr = 0; tr < 3; tr++) {
+        for (let tc = 0; tc < 3; tc++) {
+          if (fr === tr && fc === tc) continue;
+          if (canPlaceAt(tr, tc, top.size, playerKey)) {
+            moves.push({ action: "move_on_board", from: { r: fr, c: fc }, to: { r: tr, c: tc } });
+          }
+        }
+      }
+    }
+  }
+
+  return moves;
+}
+
+function applyMove(state, move, playerKey) {
+  const newState = cloneState(state);
+  const player = newState.players[playerKey];
+  if (!player) return newState;
+
+  if (move.action === "place_from_hand") {
+    const { size, to } = move;
+    newState.board[to.r][to.c].push({ owner: playerKey, size, color: player.color });
+    player.pieces[size]--;
+  } else if (move.action === "move_on_board") {
+    const { from, to } = move;
+    const srcStack = newState.board[from.r][from.c];
+    const top = srcStack.pop();
+    newState.board[to.r][to.c].push(top);
+  }
+
+  return newState;
+}
+
+function isTsumiState(state, losingPlayerKey) {
+  const opponent = (losingPlayerKey === "A") ? "B" : "A";
+  const moves = getAllLegalMoves(state, losingPlayerKey);
+  if (moves.length === 0) return true; // no legal move = 詰み
+
+  // すべての手について調べる
+  for (const move of moves) {
+    const next = applyMove(state, move, losingPlayerKey);
+    const oppMoves = getAllLegalMoves(next, opponent);
+
+    // 相手がこの盤面で一手で勝てるか？
+    let opponentCanWin = false;
+    for (const om of oppMoves) {
+      const after = applyMove(next, om, opponent);
+      const winner = checkWinner.call({ board: after.board }); // callでboardを参照可能に
+      if (winner === opponent) {
+        opponentCanWin = true;
+        break;
+      }
+    }
+
+    // 一手でも回避できるなら詰みではない
+    if (!opponentCanWin) return false;
+  }
+
+  // どの手を打っても相手が次ターンで勝てる
+  return true;
 }
 
 // ----------------- socket handling -----------------
@@ -212,6 +306,7 @@ io.on("connection", (socket) => {
       if (ack) ack({ error: "not_your_turn" });
       return;
     }
+    gameState.prevBoard = JSON.parse(JSON.stringify(gameState.board));
 
     try {
       if (!payload || !payload.action) throw new Error("invalid payload");
@@ -275,6 +370,15 @@ io.on("connection", (socket) => {
       if (winnerSlot) {
         gameState.winner = winnerSlot;
         gameState.started = false;
+        // 🟥 ここで1手前の盤面を使って「詰んでいたか」分析する
+        const loserKey = (winnerSlot === "A") ? "B" : "A";
+        const prevState = {
+          board: gameState.prevBoard,  // 1手前を保存しておく（下で説明）
+          players: JSON.parse(JSON.stringify(gameState.players))
+        };
+        if (isTsumiState(prevState, loserKey)) {
+          console.log("🧩 実は前の盤面で既に詰んでいた！");
+        }
         io.emit("game_over", { winner: winnerSlot, state: sanitizeStateForClients() });
         io.emit("update_state", sanitizeStateForClients());
         if (ack) ack({ ok: true, winner: winnerSlot });
