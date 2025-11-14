@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Gobblet Gobblers - Multiplayer</title>
+<title>Gobblet Gobblers - Multiplayer (3D)</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>Gobblet Gobblers</h1>
+      <h1>Gobblet Gobblers (3D)</h1>
       <div class="controls">
         <input id="nameInput" placeholder="あなたの名前" />
         <button id="joinBtn">Join</button>
@@ -20,8 +20,7 @@
 
     <main>
       <section class="board-wrap">
-        <div id="board" class="board" aria-label="game-board"></div>
-      </section>
+        </section>
 
       <aside class="panel">
         <div class="status">
@@ -33,7 +32,7 @@
         <div class="hand">
           <div><strong>手駒</strong></div>
           <div id="handContainer" class="hand-row"></div>
-          <div class="hint">手駒をクリック → 盤面のマスをクリックで配置。既に盤上の自分の見えている駒をクリックして移動できます。</div>
+          <div class="hint">（3D版）手駒をクリック → 盤面のマスをクリックで配置。盤上の自分の駒をクリック → 移動先のマスをクリックで移動。</div>
         </div>
 
         <div class="log" id="log"></div>
@@ -41,7 +40,16 @@
     </main>
   </div>
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="client.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="client.js"></script>
 </body>
 </html>
