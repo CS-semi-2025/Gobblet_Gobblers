@@ -1,10 +1,41 @@
-// Node.jsの標準モジュールを読み込む
-const http = require('http'); // HTTPサーバー機能
-const fs = require('fs');     // ファイルシステム (ファイル読み込み)
-const path = require('path'); // ファイルパスの操作
+// server.js
+// Node.js + Express + Socket.IO based server for Gobblet Gobblers
+// Usage: node server.js
 
-// 'ws'ライブラリを読み込みます
-const WebSocket = require('ws');
+import express from "express";
+import http from "http";
+import { Server as IOServer } from "socket.io";
+
+const app = express();
+const server = http.createServer(app);
+const io = new IOServer(server);
+
+// serve static client files from /public
+app.use(express.static("public"));
+
+// ----------------- game state -----------------
+function makeEmptyBoard() {
+  return [
+    [[], [], []],
+    [[], [], []],
+    [[], [], []]
+  ];
+}
+
+let gameState = {
+  board: makeEmptyBoard(),
+  players: {
+    // slot keys 'A' and 'B' reserved; each slot may be null (no player)
+    A: null,
+    B: null
+  },
+  currentTurn: null, // 'A' or 'B'
+  winner: null,
+  started: false
+};
+
+// helper: map size name to numeric value
+const SIZE_VAL = { small: 1, medium: 2, large: 3 };
 
 // 1. HTTPサーバーを作成します
 const httpServer = http.createServer((req, res) => {

@@ -1,98 +1,55 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ゲーム画面モックアップ</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Gobblet Gobblers - Multiplayer (3D)</title>
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
-    <div id="game-container">
-        <div id="opponent-area">
-            <div class="timer">相手の時間</div>
-            <div class="hand" id="opponent-hand">
-                <div class="piece large orange"></div>
-                <div class="piece large orange"></div>
-                <div class="piece medium orange"></div>
-                <div class="piece medium orange"></div>
-                <div class="piece small orange"></div>
-                <div class="piece small orange"></div>
+  <div class="container">
+    <header>
+      <h1>Gobblet Gobblers (3D)</h1>
+      <div class="controls">
+        <input id="nameInput" placeholder="あなたの名前" />
+        <button id="joinBtn">Join</button>
+        <button id="restartBtn" class="secondary">再戦</button>
+        <button id="leaveBtn" class="secondary">退出</button>
             </div>
+    </header>
+
+    <main>
+      <section class="board-wrap">
+        </section>
+
+      <aside class="panel">
+        <div class="status">
+          <div>あなた: <span id="meLabel">未割当</span></div>
+          <div>ターン: <span id="turnLabel">—</span></div>
+          <div>状態: <span id="gameStateLabel">待機中</span></div>
         </div>
 
-        <div id="game-board">
-            <div class="cell"></div>
-            <div class="cell"></div>
-            <div class="cell"></div>
-            <div class="cell"></div>
-            <div class="cell"></div>
-            <div class="cell"></div>
-            <div class="cell"></div>
-            <div class="cell"></div>
-            <div class="cell"></div>
+        <div class="hand">
+          <div><strong>手駒</strong></div>
+          <div id="handContainer" class="hand-row"></div>
+          <div class="hint">（3D版）手駒をクリック → 盤面のマスをクリックで配置。盤上の自分の駒をクリック → 移動先のマスをクリックで移動。</div>
         </div>
 
-        <div id="player-area">
-            <div class="hand" id="player-hand">
-                <div class="piece large blue"></div>
-                <div class="piece large blue"></div>
-                <div class="piece medium blue"></div>
-                <div class="piece medium blue"></div>
-                <div class="piece small blue"></div>
-                <div class="piece small blue"></div>
-            </div>
-            <div class="timer">自分の時間</div>
+        <div class="log" id="log"></div>
+      </aside>
+    </main>
         </div>
 
-        <button id="settings-button">設定 ⚙️</button>
-    </div>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/"
+      }
+    }
+  </script>
 
-    <div id="modal-overlay" class="hidden"></div>
-    <div id="settings-modal" class="hidden">
-        
-        <div class="modal-header">
-            <h2 class="modal-title">設定</h2>
-            <button id="close-modal-button" class="close-button">×</button>
-        </div>
-
-        <div class="modal-tabs">
-            <button class="tab-button active" data-tab="tab-content-settings">環境設定</button>
-            <button class="tab-button" data-tab="tab-content-controls">ゲーム操作</button>
-            <button class="tab-button" data-tab="tab-content-help">ヘルプ/ルール</button>
-        </div>
-
-        <div class="modal-content">
-            
-            <div id="tab-content-settings" class="tab-content active">
-                <div class="setting-group">
-                    <h3>サウンド</h3>
-                    <label>BGM: <input type="range" min="0" max="100" value="50"></label>
-                    <label>効果音: <input type="range" min="0" max="100" value="50"></label>
-                </div>
-                <div class="setting-group">
-                    <h3>操作補助</h3>
-                    <label>
-                        移動可能なマスをハイライト
-                        <span class="toggle-switch">ON</span> </label>
-                    <label>
-                        「うっかり負け」警告
-                        <span class="toggle-switch">ON</span> </label>
-                </div>
-            </div>
-
-            <div id="tab-content-controls" class="tab-content">
-                <button class="modal-action-button">この対戦をやり直す</button>
-                <button class="modal-action-button">降参する</button>
-            </div>
-
-            <div id="tab-content-help" class="tab-content">
-                <h3>簡単なルール説明</h3>
-                <p>ここにルール説明のテキストが入ります。</p>
-            </div>
-        </div>
-    </div>
-
-    <script src="script.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="client.js"></script>
 </body>
 </html>

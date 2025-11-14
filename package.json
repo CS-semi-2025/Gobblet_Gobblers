@@ -1,16 +1,15 @@
 {
-  "name": "zemi",
+  "name": "gobblet-gobblers",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Gobblet Gobblers online game server",
+  "main": "server.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "ws": "^8.18.3"
+    "express": "^4.19.2",
+    "socket.io": "^4.8.1",
+    "ws": "^8.17.0"
   }
 }
