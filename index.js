@@ -1,42 +1,125 @@
-// client.js (Three.js version)
-// Three.js 本体をインポート
+// client.js (Three.js version - Multi-room ready)
 import * as THREE from 'three';
-// (必要なら OrbitControls などもインポート)
-// import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-// --- Socket.IO と 既存UI要素の参照 ---
+// --- Socket.IO 接続 ---
 const socket = io();
 
-// UI参照 (ログ、ステータスパネル、ボタン類はDOMのまま)
+// --- UI参照 ---
+// ホーム画面用
+const homeScreen = document.getElementById("homeScreen");
+const createRoomBtn = document.getElementById("createRoomBtn");
+const roomInput = document.getElementById("roomInput");
+const homeNameInput = document.getElementById("homeNameInput");
+
+// UI参照　(ログ、ステータスパネル、ボタン類はDOMのまま)ゲーム画面用
+const gameScreen = document.getElementById("gameScreen");
 const logEl = document.getElementById('log');
 const meLabel = document.getElementById('meLabel');
 const turnLabel = document.getElementById('turnLabel');
 const gameStateLabel = document.getElementById('gameStateLabel');
-const joinBtn = document.getElementById('joinBtn');
-const nameInput = document.getElementById('nameInput');
+const currentRoomLabel = document.getElementById('currentRoomLabel'); // 追加
+const gameNameInput = document.getElementById('gameNameInput');
 const restartBtn = document.getElementById('restartBtn');
 const leaveBtn = document.getElementById('leaveBtn');
-const boardWrap = document.querySelector('.board-wrap'); // Canvasの親
+const boardWrap = document.querySelector('.board-wrap');
 const handContainer = document.getElementById('handContainer');
 
+// グローバル変数
 let mySlot = null;
 let myId = null;
 let state = null;
-let selectedPiece = null; // { from:{type:'hand'|'cell', r,c?}, size? }
+let selectedPiece = null; 
+let currentRoomID = null; // 現在のルームIDを保持
 
-// --- Three.js セットアップ ---
+// URLパラメータにroomがあれば自動入力
+const params = new URLSearchParams(window.location.search);
+if (params.get('room')) {
+    roomInput.value = params.get('room');
+}
+
+// --- ▼▼▼ 画面遷移・入室ロジック ▼▼▼ ---
+
+createRoomBtn.addEventListener("click", () => {
+    const roomVal = roomInput.value.trim();
+    const nameVal = homeNameInput.value.trim();
+
+    if (!roomVal || !nameVal) {
+        alert("ルーム名とプレイヤー名を入力して下さい");
+        return;
+    }
+
+    // サーバーへ送信するデータ（将来的にサーバーがルーム対応したときに機能する）
+    const joinData = {
+        room: roomVal, 
+        name: nameVal
+    };
+
+    // サーバーへJoinリクエスト
+    socket.emit("join", joinData, (ack) => {
+        // サーバーからのコールバック
+        if (ack && (ack.ok || ack.slot)) {
+            // 参加成功
+            mySlot = ack.slot;
+            currentRoomID = roomVal;
+            
+            // 画面情報の更新
+            currentRoomLabel.textContent = currentRoomID;
+            gameNameInput.value = nameVal;
+            
+            addLog(`ルーム「${currentRoomID}」に参加しました (Role: ${mySlot})`);
+            if (mySlot === 'spectator') addLog('観戦モードです');
+
+            // ★画面切り替え実行★
+            toggleScreen(true);
+
+            // URLを更新（リロードしても部屋がわかるように）
+            const newUrl = `${window.location.pathname}?room=${encodeURIComponent(currentRoomID)}`;
+            window.history.pushState({ path: newUrl }, '', newUrl);
+
+        } else {
+            // 参加失敗
+            const errorMsg = ack && ack.error ? ack.error : "参加できませんでした";
+            alert("エラー: " + errorMsg);
+        }
+    });
+});
+
+// 退出ボタン
+leaveBtn.addEventListener('click', () => {
+    // ソケット切断・再接続してホームに戻るイメージ
+    // （簡易的にリロードで対応するのが一番バグが少ないです）
+    if(confirm("退出してホームに戻りますか？")){
+        window.location.href = window.location.pathname; 
+    }
+});
+
+// 画面切り替え関数
+function toggleScreen(showGame) {
+    if (showGame) {
+        homeScreen.style.display = "none";
+        gameScreen.style.display = "block";
+        // 重要: display:none解除直後はCanvasサイズがおかしくなるのでリサイズ発火
+        onWindowResize();
+    } else {
+        homeScreen.style.display = "flex";
+        gameScreen.style.display = "none";
+    }
+}
+
+
+// --- ▼▼▼ Three.js セットアップ (基本そのまま) ▼▼▼ ---
 let scene, camera, renderer, raycaster, pointer;
-let boardGroup; // 3D盤面
-let pieceMeshes = []; // 表示中の3D駒オブジェクトの配列
-const cellObjects = []; // クリック判定用の透明なマス (3x3)
-let selectedMesh = null; // 選択中の3Dメッシュ
+let boardGroup; 
+let pieceMeshes = []; 
+const cellObjects = []; 
+let selectedMesh = null; 
 
 // 色の定義 (CSSと合わせる)
 const COLORS = {
     A: 0x1f78b4,
     B: 0xef6c00,
     board: 0xffffff,
-    selected: 0xfacc15 // 黄色
+    selected: 0xfacc15 
 };
 
 // 駒の物理サイズ
@@ -102,85 +185,56 @@ function buildBoard3D() {
     const cellGeo = new THREE.BoxGeometry(3, 0.1, 3); // マスのサイズ
     cellGeo.translate(0, 0.15, 0); // 盤面よりわずかに上
 
-    // ▼▼▼ 修正箇所 ▼▼▼
-    // visible: false だとクリック判定されないため、透明度0で対応します
     const cellMat = new THREE.MeshBasicMaterial({ 
-        color: 0xff0000, // 色は何でも良い（見えないので）
+        color: 0xff0000, 
         transparent: true, 
-        opacity: 0       // 透明にする
+        opacity: 0      
     });
-    // ▲▲▲ 修正箇所 ▲▲▲
 
     for (let r = 0; r < 3; r++) {
         for (let c = 0; c < 3; c++) {
             const cell = new THREE.Mesh(cellGeo, cellMat);
-            // 3D空間上の座標
             cell.position.set(c * CELL_GAP + BOARD_OFFSET, 0, r * CELL_GAP + BOARD_OFFSET);
-            // クリック時に(r,c)を特定するためのデータ
             cell.userData = { type: 'cell', r, c }; 
             boardGroup.add(cell);
-            cellObjects.push(cell); // クリック判定対象に追加
+            cellObjects.push(cell); 
         }
     }
     scene.add(boardGroup);
-    
-    // (TODO: 手駒置き場の3Dオブジェクトもここで作成・配置すると良い)
 }
 
-/**
- * (新規) 駒の3Dメッシュを作成するヘルパー関数
- */
 function createPieceMesh(size, owner) {
     const { r, h } = PIECE_SIZES[size];
-
-    // 形状 (円柱)
     const geometry = new THREE.CylinderGeometry(r, r, h, 32);
-    // 色
     const color = COLORS[owner];
     const material = new THREE.MeshStandardMaterial({ color: color });
-    
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;
     return mesh;
 }
 
-/**
- * 3. 状態を描画 (元の render の完全書き換え)
- */
 function render(stateObj) {
     state = stateObj;
     
-    // ラベル類（DOM）の更新 (これはそのまま)
     turnLabel.textContent = state.currentTurn || '—';
     gameStateLabel.textContent = state.winner ? `終了: ${state.winner}` : (state.started ? '進行中' : '待機中');
     meLabel.textContent = mySlot ? `${mySlot}` : '未割当';
 
-    // --- 3D描画処理 ---
-    
-    // 1. 既存の3D駒メッシュを全て削除
     pieceMeshes.forEach(mesh => scene.remove(mesh));
     pieceMeshes = [];
 
-    // 2. サーバーからの盤面状態(state.board)に基づいて駒メッシュを再構築
     if (state.board) {
         for (let r = 0; r < 3; r++) {
             for (let c = 0; c < 3; c++) {
                 const stack = (state.board[r] && state.board[r][c]) ? state.board[r][c] : [];
-                
-                // 3D空間上の(r,c)に対応する座標
                 const x = c * CELL_GAP + BOARD_OFFSET;
                 const z = r * CELL_GAP + BOARD_OFFSET;
-
-                // スタックを物理的に積み上げる
                 let currentHeight = 0;
                 for (let i = 0; i < stack.length; i++) {
-                    const p = stack[i]; // { owner, size, color }
+                    const p = stack[i]; 
                     const pieceMesh = createPieceMesh(p.size, p.owner);
-                    
                     const y = currentHeight + pieceMesh.geometry.parameters.height / 2 + 0.1;
                     pieceMesh.position.set(x, y, z);
-                    
-                    // クリック判定用のデータを仕込む
                     pieceMesh.userData = { 
                         type: 'piece', 
                         r, c, 
@@ -188,64 +242,48 @@ function render(stateObj) {
                         owner: p.owner, 
                         isTop: (i === stack.length - 1) 
                     };
-                    
                     scene.add(pieceMesh);
-                    pieceMeshes.push(pieceMesh); // 削除できるように保持
-                    
-                    currentHeight += pieceMesh.geometry.parameters.height * 0.2; // 少し重ねる
+                    pieceMeshes.push(pieceMesh); 
+                    currentHeight += pieceMesh.geometry.parameters.height * 0.2; 
                 }
             }
         }
     }
-    
-    // 3. 手駒の描画 (DOM)
     renderHandDOM();
-    
-    // 4. 3Dシーンのレンダリング
     renderer.render(scene, camera);
 }
 
-/**
- * 1. Three.js シーンの初期化
- */
 function onCanvasClick(event) {
-    // 画面座標(px)を-1から1の範囲（正規化デバイス座標）に変換
+    if (!state.started && !state.winner) return; // ゲーム中以外は反応しない
+
     const rect = renderer.domElement.getBoundingClientRect();
     pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-    // レイキャスターで交差判定
     raycaster.setFromCamera(pointer, camera);
-    
-    // (判定対象: 透明なマス + 見えている駒)
     const objectsToIntersect = [...cellObjects, ...pieceMeshes];
     const intersects = raycaster.intersectObjects(objectsToIntersect);
 
     if (intersects.length > 0) {
-        const clickedObj = intersects[0].object; // カメラに一番近いオブジェクト
+        const clickedObj = intersects[0].object; 
         const data = clickedObj.userData;
-
-        // --- クリックしたオブジェクトに応じてロジック分岐 ---
-        
         let targetR, targetC;
         
-        if (data.type === 'cell') { // 透明なマスがクリックされた
+        if (data.type === 'cell') { 
             targetR = data.r;
             targetC = data.c;
-        } else if (data.type === 'piece') { // 駒がクリックされた
+        } else if (data.type === 'piece') { 
             targetR = data.r;
             targetC = data.c;
         } else {
-            return; // 関係ない場所
+            return; 
         }
-
-        // --- 元の onCellClick のロジックを移植 ---
             
-        // 1. 何も選択していない時 (駒の選択)
+        // 1. 選択なし -> 盤上駒選択
         if (!selectedPiece) {
             if (data.type === 'piece' && data.isTop && data.owner === mySlot) {
                 selectedPiece = { from: { type: 'cell', r: data.r, c: data.c }, size: data.size };
-                highlightSelection(clickedObj); // 3Dハイライト処理
+                highlightSelection(clickedObj); 
                 addLog(`盤上駒選択: (${data.r},${data.c})`);
                 return;
             } else if (data.type === 'cell') {
@@ -254,9 +292,17 @@ function onCanvasClick(event) {
             }
         }
 
-        // 2. 手駒を選択している時 (手駒の配置)
+        // payloadに roomID を含める（サーバー実装用）
+        const basePayload = { room: currentRoomID }; 
+
+        // 2. 手駒配置
         if (selectedPiece.from.type === 'hand') {
-            const payload = { action: 'place_from_hand', size: selectedPiece.size, to: { r: targetR, c: targetC } };
+            const payload = { 
+                ...basePayload,
+                action: 'place_from_hand', 
+                size: selectedPiece.size, 
+                to: { r: targetR, c: targetC } 
+            };
             socket.emit('place_piece', payload, (ack) => {
                 if (ack && ack.error) addLog('エラー: ' + ack.error);
             });
@@ -265,16 +311,19 @@ function onCanvasClick(event) {
             return;
         }
 
-        // 3. 盤上の駒を選択している時 (駒の移動)
+        // 3. 盤上移動
         if (selectedPiece.from.type === 'cell') {
-            // 自分自身への移動は選択解除
             if (selectedPiece.from.r === targetR && selectedPiece.from.c === targetC) {
                 clearSelection();
                 addLog('選択解除');
                 return;
             }
-
-            const payload = { action: 'move_on_board', from: { r: selectedPiece.from.r, c: selectedPiece.from.c }, to: { r: targetR, c: targetC } };
+            const payload = { 
+                ...basePayload,
+                action: 'move_on_board', 
+                from: { r: selectedPiece.from.r, c: selectedPiece.from.c }, 
+                to: { r: targetR, c: targetC } 
+            };
             socket.emit('place_piece', payload, (ack) => {
                 if (ack && ack.error) addLog('エラー: ' + ack.error);
             });
@@ -285,54 +334,42 @@ function onCanvasClick(event) {
     }
 }
 
-/**
- * (新規) 3D/DOMの選択ハイライト処理
- */
 function highlightSelection(meshToHighlight = null) {
-    // DOM (手駒) のハイライト
     document.querySelectorAll('.hand-piece').forEach(el => el.classList.remove('selected'));
     if (selectedPiece && selectedPiece.from.type === 'hand') {
-        // 同じサイズの最初の手駒をハイライト (元のロジックを流用)
         const el = [...handContainer.children].find(ch => ch.dataset.size === selectedPiece.size);
         if (el) el.classList.add('selected');
     }
-
-    // 3D (盤上) のハイライト
     if (selectedMesh) {
-        // 前回の選択を元に戻す
         selectedMesh.material.color.set(COLORS[selectedMesh.userData.owner]);
         selectedMesh = null;
     }
     if (meshToHighlight) {
-        // 今回の選択をハイライト
         meshToHighlight.material.color.set(COLORS.selected);
         selectedMesh = meshToHighlight;
     }
-    renderer.render(scene, camera); // ハイライトを即時反映
+    renderer.render(scene, camera);
 }
 
-/**
- * (新規) 選択解除
- */
 function clearSelection() {
     selectedPiece = null;
-    highlightSelection(null); // すべてのハイライトを解除
+    highlightSelection(null); 
 }
 
-/**
- * (新規) ウィンドウリサイズ対応
- */
 function onWindowResize() {
+    // コンテナが非表示の場合は処理しない（0除算などでバグるため）
+    if (boardWrap.clientWidth === 0) return;
+
     const width = boardWrap.clientWidth;
-    const height = 500; // 高さを500pxに固定
+    const height = 500; 
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height);
-    renderer.render(scene, camera); // リサイズ後すぐに再描画
+    renderer.render(scene, camera); 
 }
 
 
-// --- 既存のSocket.IOロジック (DOM手駒・ログ・ボタン) ---
+// --- 既存のSocket.IOロジック (DOM手駒・ログ) ---
 
 function addLog(s){
   const t = new Date().toLocaleTimeString();
@@ -340,10 +377,6 @@ function addLog(s){
 }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-/**
- * 手駒 (DOM) の描画
- * (元の renderHand とほぼ同じ)
- */
 function renderHandDOM(){
   handContainer.innerHTML = '';
   if (!state || !mySlot || !state.players || mySlot === 'spectator') return;
@@ -351,7 +384,6 @@ function renderHandDOM(){
   const me = state.players[mySlot];
   if (!me) return;
   
-  // 選択中の手駒をハイライト解除
   if (selectedPiece && selectedPiece.from.type === 'hand') {
       highlightSelection(null);
   }
@@ -364,13 +396,13 @@ function renderHandDOM(){
       wrapper.className = 'hand-piece';
       const piece = document.createElement('div');
       piece.className = `piece size-${size} color-${mySlot==='A'?'A':'B'}`;
-      piece.textContent = ''; // size[0].toUpperCase();
+      piece.textContent = ''; 
       wrapper.appendChild(piece);
       wrapper.dataset.size = size;
       wrapper.addEventListener('click', (ev) => {
         ev.stopPropagation();
         selectedPiece = { from: { type: 'hand'}, size };
-        highlightSelection(null); // 3Dハイライトを解除し、DOMハイライトを設定
+        highlightSelection(null); 
         addLog(`手駒選択: ${size}`);
       });
       handContainer.appendChild(wrapper);
@@ -379,57 +411,37 @@ function renderHandDOM(){
 }
 
 
-// (ボタンのイベントリスナーはそのまま)
-joinBtn.addEventListener('click', () => {
-  const name = nameInput.value.trim() || 'Guest';
-  socket.emit('join', { name }, (ack) => {
-    if (ack && ack.slot) {
-      mySlot = ack.slot;
-      addLog(`join 成功: ${mySlot}`);
-      if (mySlot === 'spectator') addLog('観戦モードです');
-    } else {
-      addLog('join 応答なし');
-    }
+restartBtn.addEventListener('click', () => {
+    // 再戦リクエストにもroomIDを含める
+    socket.emit('restart_game', { room: currentRoomID }, (ack) => {
+    if (ack && ack.ok) addLog('再戦リクエスト送信');
+    else if (ack && ack.error) addLog('再戦失敗: ' + ack.error);
   });
 });
 
-restartBtn.addEventListener('click', () => {
-    socket.emit('restart_game', {}, (ack) => {
-    if (ack && ack.ok) addLog('再戦リクエスト送信');
-    else if (ack && ack.error) addLog('再戦失敗: ' + ack.error);
-        });
-    });
 
-leaveBtn.addEventListener('click', () => {
-  socket.disconnect();
-  addLog('切断しました');
-});
-
-
-// (Socketイベントリスナーはそのまま)
+// --- Socketイベントリスナー ---
 socket.on('connect', () => {
   myId = socket.id;
-  addLog('サーバー接続: ' + myId);
+  // addLog('サーバー接続: ' + myId); // ログがうるさいのでコメントアウト
 });
 socket.on('init', (s) => {
-  addLog('初期状態受信');
-  render(s);
+  // initは接続直後に来るが、まだ部屋に入っていないのでここでは描画しない
+  // ただし、再接続時などの処理が必要ならここに書く
 });
 socket.on('assign', (d) => {
-  if (d && d.slot) {
-    mySlot = d.slot;
-    addLog('あなたの割当: ' + mySlot);
-    renderHandDOM(); // 割当が決まったら手駒を描画
-  }
+    // createRoomBtn内のコールバックで処理するため、ここではログ出し程度
+    if(d && d.slot) addLog(`(System) Role Assigned: ${d.slot}`);
 });
 socket.on('start_game', (s) => {
-  addLog('ゲーム開始');
+  addLog('ゲーム開始！');
   clearSelection();
   render(s);
 });
 socket.on('update_state', (s) => {
-  addLog('状態更新受信');
-  render(s); // サーバーから更新が来たら3D描画
+  // 自分が参加している部屋の状態更新だけ反映したいが、
+  // 現在のサーバー実装は全配信なのでそのまま受け取る
+  render(s); 
 });
 socket.on('invalid_move', (d) => {
   addLog('不正手: ' + (d && d.reason ? d.reason : 'unknown'));
@@ -441,11 +453,9 @@ socket.on('game_over', (d) => {
 });
 socket.on('disconnect', () => {
   addLog('サーバー切断');
-  mySlot = null;
-  render(state || {}); // 状態表示を更新
 });
 
 // --- 実行開始 ---
-initThree(); // 3Dシーン初期化
-buildBoard3D(); // 3D盤面作成
-render(state || {}); // 初期状態（空）を描画
+initThree(); 
+buildBoard3D(); 
+// 初期状態はレンダリングしない（Home画面に隠れているため）

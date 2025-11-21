@@ -1,4 +1,4 @@
-/* --- 基本設定 --- */
+/* simple styling */
 :root {
   --accent: #2b6cb0;
   --muted: #64748b;
@@ -24,22 +24,52 @@ header h1{ margin:0; font-size:18px; }
 .controls .secondary{ background:#6b7280; }
 
 main{ display:flex; gap:16px; margin-top:12px; }
+.board-wrap { flex: 1; display:flex; justify-content:center; align-items:center; }
+.board {
+  display:grid;
+  grid-template-columns: repeat(3,120px);
+  grid-template-rows: repeat(3,120px);
+  gap: 10px;
+  padding: 8px;
+  background: linear-gradient(#fff,#fbfdff);
+  border-radius:10px;
+}
 
 /* ▼▼▼ 変更点 ▼▼▼ */
 .board-wrap { 
-    flex: 1;
+  flex: 1; 
   display:flex; 
   justify-content:center; 
   align-items:center; 
   min-height: 500px; /* Canvasのための高さを確保 */
   background: #f3f6fb; /* 3Dシーンの背景色と合わせる */
-    border-radius: 8px;
+  border-radius: 8px;
   overflow: hidden; /* Canvasがはみ出ないように */
 }
 /* .board, .cell, .stack は 3D化により不要になるか、client.js が管理 */
 /* ▲▲▲ 変更点 ▲▲▲ */
 
-
+.cell{
+  background:#ffffff;
+  border-radius:8px;
+  border: 1px solid #e6eef7;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+  display:flex; align-items:center; justify-content:center;
+  position:relative;
+  cursor: pointer;
+}
+.cell .stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.cell .stack .piece {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
 .piece{ border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
 .size-small{ width:42px; height:42px; font-size:12px; }
 .size-medium{ width:62px; height:62px; font-size:14px; }
@@ -60,3 +90,36 @@ main{ display:flex; gap:16px; margin-top:12px; }
 .log{ background:#fbfdff; padding:8px; border-radius:8px; height:200px; overflow:auto; font-size:13px; color:var(--muted); }
 
 /* .meta は 3D化により不要に */
+
+/* ホーム画面 */
+#homeScreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  height: 80vh;
+}
+
+.home-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 260px;
+}
+
+.home-panel input {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.home-panel button {
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
