@@ -580,6 +580,43 @@ if (toggleHighlightBtn) {
     });
 }
 
+const roomIdInput = document.getElementById("roomIdInput");
+const createRoomBtn = document.getElementById("createRoomBtn");
+const refreshRoomsBtn = document.getElementById("refreshRoomsBtn");
+const roomListEl = document.getElementById("roomList");
+
+createRoomBtn.addEventListener("click", () => {
+  const roomId = roomIdInput.value.trim();
+  if (!roomId) return addLog("部屋名を入力して下さい");
+  socket.emit("create_room", { roomId }, (ack) => {
+    if (ack.ok) addLog(`部屋「${roomId}」を作成しました`);
+    else addLog("作成失敗: " + ack.error);
+  });
+});
+
+refreshRoomsBtn.addEventListener("click", () => {
+  socket.emit("list_rooms");
+});
+
+socket.on("rooms_list", (list) => {
+  roomListEl.innerHTML = "";
+  list.forEach(r => {
+    const btn = document.createElement("button");
+    btn.textContent = `${r.roomId} (P:${r.players} / S:${r.spectators})`;
+    btn.addEventListener("click", () => {
+      const name = nameInput.value.trim() || "Guest";
+      socket.emit("join_room", { roomId: r.roomId, name }, (ack) => {
+        if (ack.ok) {
+          addLog(`${r.roomId} に参加しました: あなたの役割 = ${ack.slot}`);
+          mySlot = ack.slot;
+        } else {
+          addLog("参加失敗: " + ack.error);
+        }
+      });
+    });
+    roomListEl.appendChild(btn);
+  });
+});
 
 // --- Socketイベントリスナー ---
 socket.on('connect', () => {
