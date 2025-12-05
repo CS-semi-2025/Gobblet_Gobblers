@@ -34,7 +34,7 @@ main{ display:flex; gap:16px; margin-top:12px; }
   border-radius:10px;
 }
 
-/* ▼▼▼ 変更点 ▼▼▼ */
+/* 3D化に伴う変更 */
 .board-wrap { 
   flex: 1; 
   display:flex; 
@@ -45,8 +45,6 @@ main{ display:flex; gap:16px; margin-top:12px; }
   border-radius: 8px;
   overflow: hidden; /* Canvasがはみ出ないように */
 }
-/* .board, .cell, .stack は 3D化により不要になるか、client.js が管理 */
-/* ▲▲▲ 変更点 ▲▲▲ */
 
 .cell{
   background:#ffffff;
@@ -87,9 +85,6 @@ main{ display:flex; gap:16px; margin-top:12px; }
   box-shadow: 0 6px 12px rgba(0,0,0,0.1);
 }
 .log{ background:#fbfdff; padding:8px; border-radius:8px; height:80px; overflow:auto; font-size:13px; color:var(--muted); }
-
-/* .meta は 3D化により不要に */
-
 
 /* ホーム画面 */
 #homeScreen {
@@ -165,8 +160,7 @@ main{ display:flex; gap:16px; margin-top:12px; }
   cursor: pointer;
 }
 
-/* 以下にモーダル用の追加 */
-/* ▼▼▼ 追加: 設定モーダル用のスタイル ▼▼▼ */
+/* 設定モーダル */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0;
@@ -254,3 +248,76 @@ main{ display:flex; gap:16px; margin-top:12px; }
 .action-btn:hover { background: #f1f5f9; }
 .action-btn.danger { color: #ef4444; border-color: #fca5a5; }
 .action-btn.danger:hover { background: #fef2f2; }
+
+/* ▼▼▼ リザルト画面用スタイル ▼▼▼ */
+.result-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.7); /* 少し暗くする */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000; /* 設定モーダルより上に */
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.result-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.result-content {
+  background: white;
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  min-width: 300px;
+}
+
+.result-content h1 {
+  font-size: 4rem;
+  margin: 0 0 10px 0;
+  font-weight: 900;
+  /* 文字にグラデーション */
+  background: linear-gradient(45deg, #ffd700, #ff8c00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.result-content.lose h1 {
+  background: linear-gradient(45deg, #64748b, #334155);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.result-content p {
+  font-size: 1.2rem;
+  color: #64748b;
+  margin-bottom: 30px;
+}
+
+.result-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.secondary-btn {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-weight: bold;
+}
+.secondary-btn:hover {
+  text-decoration: underline;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

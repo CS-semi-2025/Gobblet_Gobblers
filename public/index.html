@@ -56,7 +56,6 @@
   </section>
 </div>
 
-<!-- ここに設定画面の追加 -->
 <div id="modalOverlay" class="modal-overlay hidden">
     <div class="modal-window">
       <div class="modal-header">
@@ -105,12 +104,23 @@
     </div>
   </div>
 
+<div id="resultOverlay" class="result-overlay hidden">
+  <div class="result-content">
+    <h1 id="resultTitle">WIN!</h1>
+    <p id="resultMessage">おめでとうございます！</p>
+    <div class="result-actions">
+      <button id="resultRestartBtn" class="action-btn">もう一度遊ぶ</button>
+      <button id="resultCloseBtn" class="secondary-btn">閉じる</button>
+    </div>
+  </div>
+</div>
 
 <script type="importmap">
   {
     "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/"
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/",
+      "canvas-confetti": "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.module.mjs"
     }
   }
 </script>
